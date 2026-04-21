@@ -8,10 +8,10 @@ from peft import PeftModel
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-ADAPTER_DIR = "outputs/mistral_peft"
+BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
+ADAPTER_DIR = "outputs/qwen25_3b_peft_fast"
 TEST_FILE = "data/test.jsonl"
-OUTPUT_FILE = "outputs/eval_results.json"
+OUTPUT_FILE = "outputs/qwen25_eval_results.json"
 MAX_NEW_TOKENS = 4
 
 

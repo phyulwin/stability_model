@@ -1,4 +1,5 @@
 from pathlib import Path
+import random
 
 import torch
 from datasets import load_dataset
@@ -12,11 +13,12 @@ from transformers import (
     TrainingArguments,
 )
 
-BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 TRAIN_FILE = "data/train.jsonl"
-VAL_FILE = "data/val.jsonl"
-OUTPUT_DIR = "outputs/mistral_peft_fast"
-MAX_SEQ_LENGTH = 512
+OUTPUT_DIR = "outputs/qwen25_3b_peft_fast"
+MAX_SEQ_LENGTH = 256
+MAX_TRAIN_SAMPLES = 3000
+SEED = 42
 
 
 def render_chat(example: dict, tokenizer) -> dict:
@@ -40,6 +42,9 @@ def tokenize_example(example: dict, tokenizer) -> dict:
 
 
 def main() -> None:
+    random.seed(SEED)
+    torch.manual_seed(SEED)
+
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, use_fast=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -64,41 +69,28 @@ def main() -> None:
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
-        r=8,
-        lora_alpha=16,
+        r=4,
+        lora_alpha=8,
         lora_dropout=0.05,
         bias="none",
-        target_modules=[
-            "q_proj",
-            "k_proj",
-            "v_proj",
-            "o_proj",
-        ],
+        target_modules=["q_proj", "v_proj"],
     )
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
 
-    dataset = load_dataset(
-        "json",
-        data_files={"train": TRAIN_FILE, "validation": VAL_FILE},
+    dataset = load_dataset("json", data_files={"train": TRAIN_FILE})["train"]
+
+    if len(dataset) > MAX_TRAIN_SAMPLES:
+        dataset = dataset.shuffle(seed=SEED).select(range(MAX_TRAIN_SAMPLES))
+
+    dataset = dataset.map(
+        lambda x: render_chat(x, tokenizer),
+        remove_columns=dataset.column_names,
     )
 
-    dataset["train"] = dataset["train"].map(
-        lambda x: render_chat(x, tokenizer),
-        remove_columns=dataset["train"].column_names,
-    )
-    dataset["validation"] = dataset["validation"].map(
-        lambda x: render_chat(x, tokenizer),
-        remove_columns=dataset["validation"].column_names,
-    )
-
-    dataset["train"] = dataset["train"].map(
+    dataset = dataset.map(
         lambda x: tokenize_example(x, tokenizer),
-        remove_columns=dataset["train"].column_names,
-    )
-    dataset["validation"] = dataset["validation"].map(
-        lambda x: tokenize_example(x, tokenizer),
-        remove_columns=dataset["validation"].column_names,
+        remove_columns=dataset.column_names,
     )
 
     Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
@@ -106,22 +98,16 @@ def main() -> None:
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
-        gradient_accumulation_steps=8,
+        gradient_accumulation_steps=4,
         learning_rate=2e-4,
         num_train_epochs=1,
-        logging_steps=50,
-        evaluation_strategy="steps",
-        eval_steps=500,
-        save_strategy="steps",
-        save_steps=500,
-        save_total_limit=1,
-        load_best_model_at_end=False,
+        logging_steps=25,
+        save_strategy="no",
+        evaluation_strategy="no",
         fp16=True,
         gradient_checkpointing=True,
         optim="adamw_torch",
-        lr_scheduler_type="linear",
-        warmup_steps=10,
+        lr_scheduler_type="constant",
         report_to="none",
         remove_unused_columns=False,
     )
@@ -129,8 +115,7 @@ def main() -> None:
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["validation"],
+        train_dataset=dataset,
         data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
     )
 
