@@ -13,6 +13,7 @@ from transformers import (
     TrainingArguments,
 )
 
+# Base model, input files, output folder, and training settings.
 BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 TRAIN_FILE = "data/train.jsonl"
 VAL_FILE = "data/val.jsonl"
@@ -24,6 +25,7 @@ TARGET_POS_FRACTION = 0.25
 SEED = 42
 
 
+# Convert one chat example into plain training text.
 def render_chat(example: dict, tokenizer) -> dict:
     text = tokenizer.apply_chat_template(
         example["messages"],
@@ -33,6 +35,7 @@ def render_chat(example: dict, tokenizer) -> dict:
     return {"text": text}
 
 
+# Tokenize the training text and use it as labels too.
 def tokenize_example(example: dict, tokenizer) -> dict:
     encoded = tokenizer(
         example["text"],
@@ -44,10 +47,12 @@ def tokenize_example(example: dict, tokenizer) -> dict:
     return encoded
 
 
+# Read the binary label from one JSONL record.
 def get_label(example: dict) -> int:
     return int(example["messages"][1]["content"].strip())
 
 
+# Rebuild the training set with more positive samples.
 def rebalance_records(records: list[dict], max_samples: int, target_pos_fraction: float, seed: int) -> list[dict]:
     rng = random.Random(seed)
 
@@ -70,6 +75,7 @@ def rebalance_records(records: list[dict], max_samples: int, target_pos_fraction
     return balanced
 
 
+# Take a smaller validation subset to speed up training.
 def sample_validation(records: list[dict], max_samples: int, seed: int) -> list[dict]:
     rng = random.Random(seed)
     if len(records) <= max_samples:
@@ -78,14 +84,17 @@ def sample_validation(records: list[dict], max_samples: int, seed: int) -> list[
 
 
 def main() -> None:
+    # Set random seeds for reproducible sampling.
     random.seed(SEED)
     torch.manual_seed(SEED)
 
+    # Load tokenizer and set padding token if missing.
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, use_fast=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
 
+    # Load the model in 4-bit mode to fit on GPU memory.
     quant_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
@@ -93,6 +102,7 @@ def main() -> None:
         bnb_4bit_compute_dtype=torch.float16,
     )
 
+    # Load the base model and prepare it for LoRA fine-tuning.
     model = AutoModelForCausalLM.from_pretrained(
         BASE_MODEL,
         quantization_config=quant_config,
@@ -102,6 +112,7 @@ def main() -> None:
     model.config.use_cache = False
     model = prepare_model_for_kbit_training(model)
 
+    # Define which model layers LoRA will train.
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
@@ -114,6 +125,7 @@ def main() -> None:
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
 
+    # Load train and validation JSONL files.
     raw = load_dataset(
         "json",
         data_files={"train": TRAIN_FILE, "validation": VAL_FILE},
@@ -122,6 +134,7 @@ def main() -> None:
     train_records = [raw["train"][i] for i in range(len(raw["train"]))]
     val_records = [raw["validation"][i] for i in range(len(raw["validation"]))]
 
+    # Rebalance training data and shrink validation data.
     train_records = rebalance_records(
         train_records,
         max_samples=MAX_TRAIN_SAMPLES,
@@ -134,9 +147,11 @@ def main() -> None:
         seed=SEED,
     )
 
+    # Convert lists back into Hugging Face datasets.
     train_dataset = Dataset.from_list(train_records)
     val_dataset = Dataset.from_list(val_records)
 
+    # Turn chat messages into plain text.
     train_dataset = train_dataset.map(
         lambda x: render_chat(x, tokenizer),
         remove_columns=train_dataset.column_names,
@@ -146,6 +161,7 @@ def main() -> None:
         remove_columns=val_dataset.column_names,
     )
 
+    # Tokenize the text for model training.
     train_dataset = train_dataset.map(
         lambda x: tokenize_example(x, tokenizer),
         remove_columns=train_dataset.column_names,
@@ -155,8 +171,10 @@ def main() -> None:
         remove_columns=val_dataset.column_names,
     )
 
+    # Make sure the output folder exists.
     Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
+    # Set training speed, saving, and evaluation options.
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=1,
@@ -182,6 +200,7 @@ def main() -> None:
         remove_unused_columns=False,
     )
 
+    # Build the trainer with train and validation datasets.
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -190,6 +209,7 @@ def main() -> None:
         data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
     )
 
+    # Run fine-tuning and save the final adapter.
     trainer.train()
     trainer.save_model(OUTPUT_DIR)
     tokenizer.save_pretrained(OUTPUT_DIR)
