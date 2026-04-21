@@ -1,5 +1,16 @@
 # Qwen 2.5 3B Fine-Tuning
 
+- `Qwen` is a family of large language models developed by `Alibaba Cloud`.
+- It includes multiple model sizes, from smaller local models to larger high-capacity models.
+- `Qwen2.5-3B-Instruct` is an instruction-tuned version designed to follow prompts and structured tasks.
+- It is a decoder-only transformer model, similar in overall LLM style to models like Mistral and Llama.
+- The `3B` means it has about `3 billion parameters`, which makes it smaller and faster than `7B` models.
+- It supports chat-style prompting, which fits the JSONL `messages` format well for this stability analysis pipeline.
+- It is strong at structured output tasks, such as returning short constrained answers like `0` or `1`.
+- It is available on Hugging Face, which makes it easy to load with `transformers`, `PEFT`, and `bitsandbytes`.
+- Compared with larger models, it is more practical for fine-tuning on consumer GPUs like an `RTX 3060 6GB`.
+- In this project, it is being used as a binary classifier by fine-tuning it on pose-window prompts and stability labels.
+
 ## 1. Go to the project folder
 
 ```powershell
