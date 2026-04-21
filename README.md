@@ -32,3 +32,23 @@ python main_autoencoder.py --model <model_file>
 
 ## Visitor Count
 ![Visitor Count](https://profile-counter.glitch.me/huangruoqi/count.svg)
+
+# MSWA Mistral Fine-Tuning
+
+## Files
+- data/X_grouped.csv
+- data/y_grouped.csv
+- scripts/prepare_jsonl.py
+- scripts/finetune_mistral.py
+- scripts/evaluate.py
+
+## Steps
+1. Put grouped CSV files in `data/`
+2. Run `python scripts/prepare_jsonl.py`
+3. Run `python scripts/finetune_mistral.py`
+4. Run `python scripts/evaluate.py`
+
+## Notes
+- 0 means stable
+- 1 means unstable
+- Uses grouped 30-frame windows

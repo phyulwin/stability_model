@@ -1,3 +1,15 @@
-pandas 
-tensorflow 
+pandas
+tensorflow
 tqdm
+numpy
+scikit-learn
+joblib
+imbalanced-learn
+prettytable
+unsloth
+trl
+transformers
+datasets
+accelerate
+bitsandbytes
+pyarrow
