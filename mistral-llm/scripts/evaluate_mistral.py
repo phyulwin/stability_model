@@ -9,9 +9,10 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precisio
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-ADAPTER_DIR = "outputs/qwen25_3b_peft_fast"
+ADAPTER_DIR = "outputs/qwen25_3b_peft_balanced_fast"
 TEST_FILE = "data/test.jsonl"
-OUTPUT_FILE = "outputs/qwen25_eval_results.json"
+OUTPUT_FILE = "outputs/qwen25_eval_results_balanced_fast.json"
+
 MAX_NEW_TOKENS = 4
 
 
