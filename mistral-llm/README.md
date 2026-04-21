@@ -14,7 +14,7 @@
 ## 1. Go to the project folder
 
 ```powershell
-cd C:\Users\646ca\Downloads\CPP\SeniorProject\stability_model\mistral-llm
+cd FULL_PATH\stability_model\mistral-llm
 ```
 
 ## 2. Create and activate the environment
@@ -49,9 +49,9 @@ Expected:
 
 ## 5. Make sure these files exist
 
-- [train.jsonl](C:\Users\646ca\Downloads\CPP\SeniorProject\stability_model\mistral-llm\data\train.jsonl)
-- [val.jsonl](C:\Users\646ca\Downloads\CPP\SeniorProject\stability_model\mistral-llm\data\val.jsonl)
-- [test.jsonl](C:\Users\646ca\Downloads\CPP\SeniorProject\stability_model\mistral-llm\data\test.jsonl)
+- [train.jsonl](FULL_PATH\stability_model\mistral-llm\data\train.jsonl)
+- [val.jsonl](FULL_PATH\stability_model\mistral-llm\data\val.jsonl)
+- [test.jsonl](FULL_PATH\stability_model\mistral-llm\data\test.jsonl)
 
 ## 6. Train the model
 
